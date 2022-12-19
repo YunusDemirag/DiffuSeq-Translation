@@ -1,6 +1,6 @@
 # <img src="img/logo.jpg" width="8%" alt="" align=center /> DiffuSeq
 
-Official Codebase for [*__*DiffuSeq*__: Sequence to Sequence Text Generation With Diffusion Models*](https://arxiv.org/abs/2210.08933).
+Based on [*__*DiffuSeq*__: Sequence to Sequence Text Generation With Diffusion Models*](https://arxiv.org/abs/2210.08933).
 
 <p align = "center">
 <img src="img/diffuseq-process.png" width="95%" alt="" align=center />
