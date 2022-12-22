@@ -12,6 +12,7 @@
   "diffusion_steps": 2000,
   "noise_schedule": "sqrt",
   "timestep_respacing": "",
+  "tokenizer":"",
   "vocab": "bert",
   "use_plm_init": "no",
   "vocab_size": 0,

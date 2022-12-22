@@ -6,7 +6,8 @@ import time
 from diffuseq import gaussian_diffusion as gd
 from diffuseq.gaussian_diffusion import SpacedDiffusion, space_timesteps
 from diffuseq.transformer_model import TransformerNetModel
-from transformers import AutoTokenizer, PreTrainedTokenizerFast
+from transformers import AutoTokenizer, PreTrainedTokenizerFast, PreTrainedTokenizer
+from tokenizers import Tokenizer, Encoding
 
 class myTokenizer():
     """
@@ -23,6 +24,14 @@ class myTokenizer():
             self.pad_token_id = tokenizer.pad_token_id
             # save
             tokenizer.save_pretrained(args.checkpoint_path)
+            self.vocab_size = len(self.tokenizer)
+        elif args.tokenizer == "pretrained_bpe":
+            self.tokenizer : Tokenizer = Tokenizer.from_file(args.vocab)
+            self.sep_token_id = self.tokenizer.token_to_id("[SEP]")
+            self.pad_token_id = self.tokenizer.token_to_id("[PAD]")
+            # save
+            self.tokenizer.save(f'{args.checkpoint_path}/tokenizer.json')
+            self.vocab_size = self.tokenizer.get_vocab_size()
         else: 
             # load vocab from the path
             print('#'*30, 'load vocab from', args.vocab)
@@ -39,8 +48,9 @@ class myTokenizer():
                 path_save_vocab = f'{args.checkpoint_path}/vocab.json'
                 with open(path_save_vocab, 'w') as f:
                     json.dump(vocab_dict, f)
+            self.vocab_size = len(self.tokenizer)
                 
-        self.vocab_size = len(self.tokenizer)
+        
         args.vocab_size = self.vocab_size # update vocab size in args
     
     def encode_token(self, sentences):
@@ -48,6 +58,8 @@ class myTokenizer():
             input_ids = [[0] + [self.tokenizer.get(x, self.tokenizer['[UNK]']) for x in seq.split()] + [1] for seq in sentences]
         elif isinstance(self.tokenizer, PreTrainedTokenizerFast):
             input_ids = self.tokenizer(sentences, add_special_tokens=True)['input_ids']
+        elif isinstance(self.tokenizer, Tokenizer):
+            input_ids: "list[Encoding]" = [self.tokenizer.encode(sentence).ids for sentence in sentences]
         else:
             assert False, "invalid type of vocab_dict"
         return input_ids
@@ -62,6 +74,9 @@ class myTokenizer():
             seq = seq.squeeze(-1).tolist()
             while len(seq)>0 and seq[-1] == self.pad_token_id:
                 seq.pop()
+            tokens = self.tokenizer.decode(seq)
+        elif isinstance(self.tokenizer, Tokenizer):
+            seq = seq.squeeze(-1).tolist()
             tokens = self.tokenizer.decode(seq)
         else:
             assert False, "invalid type of vocab_dict"

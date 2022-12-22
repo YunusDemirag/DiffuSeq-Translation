@@ -1,4 +1,4 @@
-python -m torch.distributed.launch --nproc_per_node=4 --master_port=12233 --use_env run_train.py \
+python -m torch.distributed.launch --nproc_per_node=1 --master_port=12233 --use_env run_train.py \
 --diff_steps 2000 \
 --lr 0.0001 \
 --learning_steps 50000 \
@@ -7,9 +7,10 @@ python -m torch.distributed.launch --nproc_per_node=4 --master_port=12233 --use_
 --noise_schedule sqrt \
 --hidden_dim 128 \
 --bsz 2048 \
---dataset qqp \
---data_dir {path-to-datasets} \
---vocab bert \
+--dataset covost \
+--data_dir $DATASET_PATH \
+--tokenizer pretrained_bpe \
+--vocab $VOCAB_PATH \
 --seq_len 128 \
 --schedule_sampler lossaware \
---notes test-qqp
+--notes test_covost

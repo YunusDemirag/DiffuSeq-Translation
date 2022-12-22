@@ -26,6 +26,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=101, help='random seed')
 
     parser.add_argument('--config_name', type=str, default='bert-base-uncased', help='config of pre-trained models')
+    parser.add_argument('--tokenizer', type=str, required=False, help='Tokenizer type')
     parser.add_argument('--vocab', type=str, default='bert', help='use bert vocab or load external vocab dict if given as path')
     parser.add_argument('--use_plm_init', type=str, default='no', choices=['no', 'bert'], help='load init parameter from the pre-trained lm')
 
@@ -62,7 +63,7 @@ if __name__ == '__main__':
                   f"TOKENIZERS_PARALLELISM=false " \
                   f"python train.py   " \
                   f"--checkpoint_path {Model_FILE} " \
-                  f"--dataset {args.dataset} --data_dir {args.data_dir} --vocab {args.vocab} --use_plm_init {args.use_plm_init} " \
+                  f"--dataset {args.dataset} --data_dir {args.data_dir} --tokenizer {args.tokenizer} --vocab {args.vocab} --use_plm_init {args.use_plm_init} " \
                   f"--lr {args.lr} " \
                   f"--batch_size {args.bsz} --microbatch {args.microbatch} " \
                   f"--diffusion_steps {args.diff_steps} " \
