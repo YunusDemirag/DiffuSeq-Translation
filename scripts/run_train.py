@@ -32,6 +32,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--notes', type=str, default='-', help='as training notes or specifical args')
     parser.add_argument('--app', type=str, default='', help='other input args')
+    parser.add_argument('--diffusion_models_dir', type=str, required=False, default="diffusion_models/", help="Folder where models are saved")
     
     args = parser.parse_args()
 
@@ -41,7 +42,7 @@ if __name__ == '__main__':
     dname = os.path.dirname(dname)
     os.chdir(dname)
 
-    folder_name = "diffusion_models/"
+    folder_name = args.diffusion_models_dir
 
     if int(os.environ['LOCAL_RANK']) == 0:
         if not os.path.isdir(folder_name):
