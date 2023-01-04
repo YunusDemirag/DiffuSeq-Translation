@@ -13,5 +13,5 @@ python -m torch.distributed.launch --nproc_per_node=1 --master_port=12233 --use_
 --vocab $VOCAB_PATH \
 --seq_len 128 \
 --schedule_sampler lossaware \
---diffusion_models_dir /export/data2/ydemirag/diffuseq/ \
+--diffusion_models_dir $MODELS_PATH \
 --notes test_covost
