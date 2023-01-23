@@ -1,5 +1,6 @@
 python -m torch.distributed.launch --nproc_per_node=1 --master_port=12233 --use_env run_train.py \
---diff_steps 2000 \
+--diff_steps 200 \
+--iterative_building \
 --lr 0.0001 \
 --learning_steps 50000 \
 --save_interval 10000 \
@@ -14,4 +15,4 @@ python -m torch.distributed.launch --nproc_per_node=1 --master_port=12233 --use_
 --seq_len 128 \
 --schedule_sampler lossaware \
 --diffusion_models_dir $MODELS_PATH \
---notes test_covost
+--notes covost_iterative_building

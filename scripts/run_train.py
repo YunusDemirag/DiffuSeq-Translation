@@ -13,6 +13,7 @@ if __name__ == '__main__':
     parser.add_argument('--noise_schedule', type=str, default='cosine', choices=['linear', 'cosine', 'sqrt', 'trunc_cos', 'trunc_lin', 'pw_lin'], help='the distribution of noises')
     parser.add_argument('--diff_steps', type=int, default=4000, help='diffusion steps')
     parser.add_argument('--schedule_sampler', type=str, default='uniform', choices=['uniform', 'lossaware', 'fixstep'], help='schedule sampler of timesteps')
+    parser.add_argument('--iterative_building', action='store_true', help='Train model for iterative building')
 
     parser.add_argument('--seq_len', type=int, default=128, help='max len of input sequence')
     parser.add_argument('--hidden_t_dim', type=int, default=128, help='hidden size of time embedding')
@@ -65,7 +66,7 @@ if __name__ == '__main__':
                   f"python train.py   " \
                   f"--checkpoint_path {Model_FILE} " \
                   f"--dataset {args.dataset} --data_dir {args.data_dir} --tokenizer {args.tokenizer} --vocab {args.vocab} --use_plm_init {args.use_plm_init} " \
-                  f"--lr {args.lr} " \
+                  f"--lr {args.lr} {'--iterative_building ' if args.iterative_building else ''}" \
                   f"--batch_size {args.bsz} --microbatch {args.microbatch} " \
                   f"--diffusion_steps {args.diff_steps} " \
                   f"--noise_schedule {args.noise_schedule} " \

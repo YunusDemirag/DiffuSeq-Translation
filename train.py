@@ -29,6 +29,7 @@ def create_argparser():
     defaults.update(load_defaults_config())
     parser = argparse.ArgumentParser()
     add_dict_to_argparser(parser, defaults) # update latest args according to argparse
+    parser.add_argument('--iterative_building', action='store_true', help='whether to use iterative building')
     return parser
 
 def main():
@@ -46,7 +47,8 @@ def main():
         seq_len=args.seq_len,
         data_args = args,
         loaded_vocab=tokenizer,
-        model_emb=model_weight # use model's weights as init
+        model_emb=model_weight, # use model's weights as init
+        mask_for_iterative_building=args.iterative_building
     )
     next(data)
 
@@ -57,7 +59,8 @@ def main():
         split='valid',
         deterministic=True,
         loaded_vocab=tokenizer,
-        model_emb=model_weight # using the same embedding wight with tranining data
+        model_emb=model_weight, # using the same embedding wight with tranining data
+        mask_for_iterative_building=args.iterative_building
     )
 
     print('#'*30, 'size of vocab', args.vocab_size)

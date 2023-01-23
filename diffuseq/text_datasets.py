@@ -17,6 +17,7 @@ def load_data_text(
     split='train', 
     loaded_vocab=None,
     loop=True,
+    mask_for_iterative_building=False,
 ):
     """
     For a dataset, create a generator over (seqs, kwargs) pairs.
@@ -36,7 +37,10 @@ def load_data_text(
 
     print('#'*30, '\nLoading text data...')
 
-    training_data = get_corpus(data_args, seq_len, split=split, loaded_vocab=loaded_vocab)
+    if not mask_for_iterative_building:
+        training_data = get_corpus(data_args, seq_len, split=split, loaded_vocab=loaded_vocab)
+    else:
+        training_data = get_corpus_iterative(data_args, seq_len, split=split, loaded_vocab=loaded_vocab)
 
     dataset = TextDataset(
         training_data,
@@ -164,6 +168,42 @@ def get_corpus(data_args, seq_len, split='train', loaded_vocab=None):
         for row in f_reader:
             sentence_lst['src'].append(json.loads(row)['src'].strip())
             sentence_lst['trg'].append(json.loads(row)['trg'].strip())
+
+    print('### Data samples...\n', sentence_lst['src'][:2], sentence_lst['trg'][:2])
+        
+    # get tokenizer.
+    vocab_dict = loaded_vocab
+
+    train_dataset = helper_tokenize(sentence_lst, vocab_dict, seq_len)
+    return train_dataset
+
+def get_corpus_iterative(data_args, seq_len, split='train', loaded_vocab=None):
+    '''Get corpus for training a model which builds the sequence iteratively.'''
+    
+    print('#'*30, '\nLoading dataset {} from {}...'.format(data_args.dataset, data_args.data_dir))
+
+    sentence_lst = {'src':[], 'trg': []}
+    
+    if split == 'train':
+        print('### Loading form the TRAIN set...')
+        path = f'{data_args.data_dir}/train.jsonl'
+    elif split == 'valid':
+        print('### Loading form the VALID set...')
+        path = f'{data_args.data_dir}/valid.jsonl'
+    elif split == 'test':
+        print('### Loading form the TEST set...')
+        path = f'{data_args.data_dir}/test.jsonl'
+    else:
+        assert False, "invalid split for dataset"
+
+    with open(path, 'r') as f_reader:
+        for row in f_reader:
+            row_dict = json.loads(row)
+            trg = row_dict['trg'].strip()
+            src = row_dict['src'].strip()
+            for i in range(len(trg)):
+                sentence_lst['src'].append(src + ' ' + trg[:i])
+                sentence_lst['trg'].append(trg[i])
 
     print('### Data samples...\n', sentence_lst['src'][:2], sentence_lst['trg'][:2])
         
