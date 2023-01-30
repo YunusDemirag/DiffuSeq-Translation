@@ -1,0 +1,19 @@
+python -m torch.distributed.launch --nproc_per_node=1 --master_port=12233 --use_env run_train.py \
+--diff_steps 200 \
+--iterative_building \
+--lr 0.0001 \
+--learning_steps 50000 \
+--save_interval 10000 \
+--seed 102 \
+--noise_schedule sqrt \
+--hidden_dim 128 \
+--bsz 2048 \
+--dataset covost \
+--data_dir $DATASET_PATH \
+--tokenizer pretrained_bpe \
+--vocab $VOCAB_PATH \
+--seq_len 128 \
+--schedule_sampler lossaware \
+--diffusion_models_dir $MODELS_PATH \
+--resume_checkpoint $MODELS_PATH/$MODEL \
+--notes covost_iterative_building
