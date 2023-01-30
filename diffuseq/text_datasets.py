@@ -65,7 +65,7 @@ def infinite_loader(data_loader):
     while True:
         yield from data_loader
 
-def helper_tokenize(sentence_lst, vocab_dict, seq_len):
+def helper_tokenize(sentence_lst, vocab_dict, seq_len, add_end_token=True, iterative_building=False):
     # Process.memory_info is expressed in bytes, so convert to megabytes
     print(f"RAM used: {psutil.Process().memory_info().rss / (1024 * 1024):.2f} MB")
     raw_datasets = Dataset2.from_dict(sentence_lst)
@@ -115,8 +115,28 @@ def helper_tokenize(sentence_lst, vocab_dict, seq_len):
         group_lst['input_mask'] = mask
         return group_lst
     
+    def merge_and_mask_no_end_token(group_lst):
+        lst = []
+        mask = []
+        for i in range(len(group_lst['input_id_x'])):
+            src = group_lst['input_id_x'][i]
+            trg = group_lst['input_id_y'][i]
+            while len(src) + len(trg) > seq_len - 3:
+                if len(src)>len(trg):
+                    src.pop(0) if iterative_building else src.pop()
+                elif len(src)<len(trg):
+                    trg.pop()
+                else:
+                    src.pop()
+                    trg.pop()
+            lst.append(src + [vocab_dict.sep_token_id] + trg)
+            mask.append([0]*(len(src)+1))
+        group_lst['input_ids'] = lst
+        group_lst['input_mask'] = mask
+        return group_lst
+    
     tokenized_datasets = tokenized_datasets.map(
-        merge_and_mask,
+        merge_and_mask if add_end_token else merge_and_mask_no_end_token,
         batched=True,
         num_proc=1,
         desc=f"merge and mask",
@@ -202,15 +222,18 @@ def get_corpus_iterative(data_args, seq_len, split='train', loaded_vocab=None):
             trg = row_dict['trg'].strip()
             src = row_dict['src'].strip()
             for i in range(len(trg)):
-                sentence_lst['src'].append(src + ' ' + trg[:i])
+                sentence_lst['src'].append(src + '[END]' + trg[:i])
                 sentence_lst['trg'].append(trg[i])
+            sentence_lst['src'].append(src + '[END]' + trg)
+            sentence_lst['trg'].append('[END]')
+            
 
     print('### Data samples...\n', sentence_lst['src'][:2], sentence_lst['trg'][:2])
         
     # get tokenizer.
     vocab_dict = loaded_vocab
 
-    train_dataset = helper_tokenize(sentence_lst, vocab_dict, seq_len)
+    train_dataset = helper_tokenize(sentence_lst, vocab_dict, seq_len, add_end_token=False, iterative_building=True)
     return train_dataset
 
 
