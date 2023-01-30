@@ -34,6 +34,7 @@ if __name__ == '__main__':
     parser.add_argument('--notes', type=str, default='-', help='as training notes or specifical args')
     parser.add_argument('--app', type=str, default='', help='other input args')
     parser.add_argument('--diffusion_models_dir', type=str, required=False, default="diffusion_models/", help="Folder where models are saved")
+    parser.add_argument('--wandb_resume', type=str, help='Wandb resume run Id')
     
     args = parser.parse_args()
 
@@ -62,7 +63,7 @@ if __name__ == '__main__':
                   f"--seq_len {args.seq_len} --hidden_t_dim {args.hidden_t_dim} --seed {args.seed} " \
                   f"--hidden_dim {args.hidden_dim} " \
                   f"--learning_steps {args.learning_steps} --save_interval {args.save_interval} " \
-                  f"--config_name {args.config_name} --notes {args.notes}"
+                  f"--config_name {args.config_name} --notes {args.notes} --wandb_resume {args.wandb_resume}"
 
     COMMANDLINE += " " + args.app
 
