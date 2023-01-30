@@ -1,4 +1,4 @@
-python -m torch.distributed.launch --nproc_per_node=1 --master_port=12233 --use_env run_train.py \
+python -m torch.distributed.launch --nproc_per_node=1 --master_port=12233 --use_env run_resume.py \
 --diff_steps 200 \
 --iterative_building \
 --lr 0.0001 \
