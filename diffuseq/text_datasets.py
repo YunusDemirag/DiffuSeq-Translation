@@ -222,9 +222,9 @@ def get_corpus_iterative(data_args, seq_len, split='train', loaded_vocab=None):
             trg = row_dict['trg'].strip()
             src = row_dict['src'].strip()
             for i in range(len(trg)):
-                sentence_lst['src'].append(src + '[END]' + trg[:i])
+                sentence_lst['src'].append(src + ' [END] ' + trg[:i])
                 sentence_lst['trg'].append(trg[i])
-            sentence_lst['src'].append(src + '[END]' + trg)
+            sentence_lst['src'].append(src + ' [END] ' + trg)
             sentence_lst['trg'].append('[END]')
             
 
