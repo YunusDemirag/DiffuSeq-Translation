@@ -221,10 +221,11 @@ def get_corpus_iterative(data_args, seq_len, split='train', loaded_vocab=None):
             row_dict = json.loads(row)
             trg = row_dict['trg'].strip()
             src = row_dict['src'].strip()
-            for i in range(len(trg)):
-                sentence_lst['src'].append(src + ' [END] ' + trg[:i])
-                sentence_lst['trg'].append(trg[i])
-            sentence_lst['src'].append(src + ' [END] ' + trg)
+            trg_words = trg.split()
+            for i in range(len(trg_words)):
+                sentence_lst['src'].append(src + ' [END] ' + ' '.join(trg_words[:i]))
+                sentence_lst['trg'].append(trg_words[i])
+            sentence_lst['src'].append(src + ' [END] ' + ' '.join(trg_words))
             sentence_lst['trg'].append('[END]')
             
 
