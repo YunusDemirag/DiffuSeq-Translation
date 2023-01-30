@@ -16,4 +16,5 @@ python -m torch.distributed.launch --nproc_per_node=1 --master_port=12233 --use_
 --schedule_sampler lossaware \
 --diffusion_models_dir $MODELS_PATH \
 --resume_checkpoint $MODELS_PATH/$MODEL \
+--wandb_resume $WANDB_ID \
 --notes covost_iterative_building
