@@ -30,6 +30,7 @@ def create_argparser():
     parser = argparse.ArgumentParser()
     add_dict_to_argparser(parser, defaults) # update latest args according to argparse
     parser.add_argument('--iterative_building', action='store_true', help='whether to use iterative building')
+    parser.add_argument('--wandb_resume', default='none', help='whether to use wandb')
     return parser
 
 def main():
@@ -87,6 +88,7 @@ def main():
         wandb.init(
             project=os.getenv("WANDB_PROJECT", "DiffuSeq"),
             name=args.checkpoint_path,
+            id=args.wandb_resume if args.wandb_resume != 'none' else None,
         )
         wandb.config.update(args.__dict__, allow_val_change=True)
 
