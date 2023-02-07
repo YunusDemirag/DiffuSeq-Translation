@@ -11,6 +11,7 @@ import numpy as np
 import torch as th
 import torch.distributed as dist
 from transformers import set_seed
+from tokenizers import Tokenizer
 from diffuseq.rounding import denoised_fn_round, get_weights
 from diffuseq.text_datasets import load_data_text
 
@@ -35,6 +36,7 @@ def create_argparser():
     defaults.update(decode_defaults)
     parser = argparse.ArgumentParser()
     add_dict_to_argparser(parser, defaults)
+    parser.add_argument("--iterative_building", action="store_true")
     return parser
 
 
@@ -87,7 +89,8 @@ def main():
         split=args.split,
         loaded_vocab=tokenizer,
         model_emb=model_emb.cpu(), # using the same embedding wight with tranining data
-        loop=False
+        loop=False,
+        load_for_iterative_building=args.iterative_building
     )
 
     start_t = time.time()
@@ -119,46 +122,110 @@ def main():
     
     from tqdm import tqdm
 
+    if args.step == args.diffusion_steps:
+        args.use_ddim = False
+        step_gap = 1
+    else:
+        args.use_ddim = True
+        step_gap = args.diffusion_steps//args.step
+
+    sample_fn = (
+        diffusion.p_sample_loop if not args.use_ddim else diffusion.ddim_sample_loop
+    )
+
     for cond in tqdm(all_test_data):
+        padding_token_id = tokenizer.pad_token_id
+        sep_token_id = tokenizer.sep_token_id
+        end_token_id = tokenizer.tokenizer.token_to_id('[END]') if isinstance(tokenizer.tokenizer, Tokenizer) else tokenizer.sep_token_id
 
+        finished_iterative_building = False
         input_ids_x = cond.pop('input_ids').to(dist_util.dev())
-        x_start = model.get_embeds(input_ids_x)
-        input_ids_mask = cond.pop('input_mask')
-        input_ids_mask_ori = input_ids_mask
+        reference_ids = input_ids_x.clone().detach()
+        input_ids_mask = cond.pop('input_mask').to(dtype=th.bool ,device=dist_util.dev()) # [batch, seq_len]
+        input_ids_mask_ori = input_ids_mask.clone().detach()
+        generated_end_tokens_or_reached_max_len = th.zeros(input_ids_x.shape[0], dtype=th.bool, device=dist_util.dev()) # [batch]
+        generated_end_tokens_or_reached_max_len = generated_end_tokens_or_reached_max_len.unsqueeze(1)  # [batch, 1]
+        generated_end_tokens_or_reached_max_len_mask = generated_end_tokens_or_reached_max_len.expand(input_ids_mask.shape) # [batch, seq_len]
+        padding_column = th.full_like(input_ids_x[:, :1], padding_token_id, device=dist_util.dev())
+        while True:
+            input_ids_x_clone = input_ids_x.clone().detach()
+            input_ids_mask_clone = input_ids_mask.clone().detach()
+            ### input_ids_x: [batch_size, seq_len]
+            ### is structured as [x_1, ..., x_n, [END], y_1, ..., y_ji, [SEP], [PAD], ..., [PAD]] in iteration i
+            x_start = model.get_embeds(input_ids_x_clone)
 
-        noise = th.randn_like(x_start)
-        input_ids_mask = th.broadcast_to(input_ids_mask.unsqueeze(dim=-1), x_start.shape).to(dist_util.dev())
-        x_noised = th.where(input_ids_mask==0, x_start, noise)
+            noise = th.randn_like(x_start)
+            input_ids_mask_clone = th.broadcast_to(input_ids_mask_clone.unsqueeze(dim=-1), x_start.shape)
+            x_noised = th.where(input_ids_mask_clone==0, x_start, noise)
 
-        model_kwargs = {}
+            model_kwargs = {}
 
-        if args.step == args.diffusion_steps:
-            args.use_ddim = False
-            step_gap = 1
-        else:
-            args.use_ddim = True
-            step_gap = args.diffusion_steps//args.step
+            sample_shape = (x_start.shape[0], args.seq_len, args.hidden_dim)
 
-        sample_fn = (
-            diffusion.p_sample_loop if not args.use_ddim else diffusion.ddim_sample_loop
-        )
+            samples_history : th.Tensor = sample_fn(
+                model,
+                sample_shape,
+                noise=x_noised,
+                clip_denoised=args.clip_denoised,
+                denoised_fn=partial(denoised_fn_round, args, model_emb_copy.cuda()),
+                model_kwargs=model_kwargs,
+                top_p=args.top_p,
+                clamp_step=args.clamp_step,
+                clamp_first=True,
+                mask=input_ids_mask_clone,
+                x_start=x_start,
+                gap=step_gap
+            )
 
-        sample_shape = (x_start.shape[0], args.seq_len, args.hidden_dim)
+            if args.iterative_building:
+                ### samples: [batch_size, seq_len, output_dim]
+                ### structured as [x_1, ..., x_n, [END], y_1, ..., y_ji, [SEP], y_(ji+1), ..., y_j(i+1), [PAD], ..., [PAD]] in each row in iteration i (counting from 0)
+                ### do knn for y_(ji+1), ..., y_j(i+1) and update input_ids_x
+                samples = samples_history[-1].clone().detach()
 
-        samples = sample_fn(
-            model,
-            sample_shape,
-            noise=x_noised,
-            clip_denoised=args.clip_denoised,
-            denoised_fn=partial(denoised_fn_round, args, model_emb_copy.cuda()),
-            model_kwargs=model_kwargs,
-            top_p=args.top_p,
-            clamp_step=args.clamp_step,
-            clamp_first=True,
-            mask=input_ids_mask,
-            x_start=x_start,
-            gap=step_gap
-        )
+                distances_to_embeddings : th.Tensor = model.get_logits(samples)  # bsz, seqlen, vocab
+
+                nearest_embeddings = distances_to_embeddings.argmax(dim=-1) # bsz, seqlen
+                
+                generated_tokens_mask = input_ids_mask & ( nearest_embeddings != padding_token_id )
+
+                generated_end_tokens = input_ids_mask & ( nearest_embeddings == end_token_id )
+                sequence_generated_end_token = ~th.all(~generated_end_tokens, dim=1, keepdim=True) # bsz, 1
+                reached_max_len = nearest_embeddings[:, -1:] != padding_token_id # bsz, 1
+                stopped_generating = th.all(~generated_tokens_mask, dim=1, keepdim=True) # bsz, 1
+
+                generated_end_tokens_or_reached_max_len = generated_end_tokens_or_reached_max_len | sequence_generated_end_token | reached_max_len | stopped_generating	
+                generated_end_tokens_or_reached_max_len_mask = generated_end_tokens_or_reached_max_len.expand(input_ids_mask.shape)
+
+                # Shift the nearest embeddings to the left by one position and pad the last position with padding_token_id
+                nearest_embeddings = th.cat(
+                    [nearest_embeddings[:, 1:], padding_column], dim=1
+                )
+
+                shifted_generated_tokens_mask = th.cat(
+                    [generated_tokens_mask[:, 1:], th.zeros_like(generated_tokens_mask[:, :1], dtype=th.bool, device=dist_util.dev())], dim=1
+                )
+
+                set_tokens_mask = th.logical_or(input_ids_mask, input_ids_x == sep_token_id)
+
+                set_sep_token_mask =  generated_tokens_mask & ~shifted_generated_tokens_mask
+
+                nearest_embeddings = th.where(set_sep_token_mask, sep_token_id, nearest_embeddings)
+
+                input_ids_x = th.where(set_tokens_mask, nearest_embeddings, input_ids_x)
+
+                input_ids_mask = input_ids_mask & ~generated_tokens_mask & ~generated_end_tokens_or_reached_max_len_mask
+
+                finished_iterative_building = th.all(generated_end_tokens_or_reached_max_len)
+
+
+            if not args.iterative_building:
+                break
+            elif finished_iterative_building:
+                samples = [model.get_embeds(input_ids_x)]
+                break
+
+        
 
         model_emb_copy.cpu()
         # print(samples[0].shape) # samples for each step
@@ -181,9 +248,9 @@ def main():
         # print(arr.shape)
 
         reshaped_x_t = x_t
-        logits = model.get_logits(reshaped_x_t)  # bsz, seqlen, vocab
+        distances_to_embeddings = model.get_logits(reshaped_x_t)  # bsz, seqlen, vocab
 
-        cands = th.topk(logits, k=1, dim=-1)
+        cands = th.topk(distances_to_embeddings, k=1, dim=-1)
         sample = cands.indices
         # tokenizer = load_tokenizer(args)
 
@@ -192,7 +259,7 @@ def main():
             tokens = tokenizer.decode_token(seq[len_x:])
             word_lst_recover.append(tokens)
 
-        for seq, input_mask in zip(input_ids_x, input_ids_mask_ori):
+        for seq, input_mask in zip(reference_ids, input_ids_mask_ori):
             # tokens = tokenizer.decode_token(seq)
             len_x = args.seq_len - sum(input_mask).tolist()
             word_lst_source.append(tokenizer.decode_token(seq[:len_x]))

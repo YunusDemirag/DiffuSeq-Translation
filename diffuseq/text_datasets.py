@@ -18,6 +18,7 @@ def load_data_text(
     loaded_vocab=None,
     loop=True,
     mask_for_iterative_building=False,
+    load_for_iterative_building=False,
 ):
     """
     For a dataset, create a generator over (seqs, kwargs) pairs.
@@ -37,10 +38,12 @@ def load_data_text(
 
     print('#'*30, '\nLoading text data...')
 
-    if not mask_for_iterative_building:
-        training_data = get_corpus(data_args, seq_len, split=split, loaded_vocab=loaded_vocab)
-    else:
+    if mask_for_iterative_building:
         training_data = get_corpus_iterative(data_args, seq_len, split=split, loaded_vocab=loaded_vocab)
+    elif load_for_iterative_building:
+        training_data = get_corpus_iterative(data_args, seq_len, split=split, loaded_vocab=loaded_vocab, sample=True)
+    else:
+        training_data = get_corpus(data_args, seq_len, split=split, loaded_vocab=loaded_vocab)
 
     dataset = TextDataset(
         training_data,
@@ -197,7 +200,7 @@ def get_corpus(data_args, seq_len, split='train', loaded_vocab=None):
     train_dataset = helper_tokenize(sentence_lst, vocab_dict, seq_len)
     return train_dataset
 
-def get_corpus_iterative(data_args, seq_len, split='train', loaded_vocab=None):
+def get_corpus_iterative(data_args, seq_len, split='train', loaded_vocab=None, sample=False):
     '''Get corpus for training a model which builds the sequence iteratively.'''
     
     print('#'*30, '\nLoading dataset {} from {}...'.format(data_args.dataset, data_args.data_dir))
@@ -216,17 +219,33 @@ def get_corpus_iterative(data_args, seq_len, split='train', loaded_vocab=None):
     else:
         assert False, "invalid split for dataset"
 
-    with open(path, 'r') as f_reader:
-        for row in f_reader:
+    if sample:
+        def prepare_data(row):
+            row_dict = json.loads(row)
+            trg = row_dict['trg'].strip()
+            src = row_dict['src'].strip()
+            src = src + ' [END] '
+            return [(src, trg)]
+    else:
+        def prepare_data(row):
+            data = []
             row_dict = json.loads(row)
             trg = row_dict['trg'].strip()
             src = row_dict['src'].strip()
             trg_words = trg.split()
             for i in range(len(trg_words)):
-                sentence_lst['src'].append(src + ' [END] ' + ' '.join(trg_words[:i]))
-                sentence_lst['trg'].append(trg_words[i])
-            sentence_lst['src'].append(src + ' [END] ' + ' '.join(trg_words))
-            sentence_lst['trg'].append('[END]')
+                src_trg = (src + ' [END] ' + ' '.join(trg_words[:i]), trg_words[i])
+                data.append(src_trg)
+            src_trg = (src + ' [END] ' + ' '.join(trg_words), '[END]')
+            data.append(src_trg)
+            return data
+            
+    with open(path, 'r') as f_reader:
+        for row in f_reader:
+            data = prepare_data(row)
+            for src, trg in data:
+                sentence_lst['src'].append(src)
+                sentence_lst['trg'].append(trg)
             
 
     print('### Data samples...\n', sentence_lst['src'][:2], sentence_lst['trg'][:2])
@@ -234,7 +253,7 @@ def get_corpus_iterative(data_args, seq_len, split='train', loaded_vocab=None):
     # get tokenizer.
     vocab_dict = loaded_vocab
 
-    train_dataset = helper_tokenize(sentence_lst, vocab_dict, seq_len, add_end_token=False, iterative_building=True)
+    train_dataset = helper_tokenize(sentence_lst, vocab_dict, seq_len, add_end_token=False, iterative_building=True if not sample else False)
     return train_dataset
 
 

@@ -1,7 +1,7 @@
 python -m torch.distributed.launch --nproc_per_node=1 --master_port=12233 --use_env run_train.py \
---diff_steps 200 \
+--diff_steps 1000 \
 --iterative_building \
---lr 0.0001 \
+--lr 0.001 \
 --learning_steps 50000 \
 --save_interval 10000 \
 --seed 102 \
