@@ -51,13 +51,17 @@ if __name__ == '__main__':
         if not os.path.isdir(folder_name):
             os.mkdir(folder_name)
 
-    Model_FILE = f"diffuseq_{args.dataset}_h{args.hidden_dim}_lr{args.lr}" \
-                f"_t{args.diff_steps}_{args.noise_schedule}_{args.schedule_sampler}" \
-                f"_seed{args.seed}"
-    if args.notes:
-        args.notes += time.strftime("%Y%m%d-%H:%M:%S")
-        Model_FILE = Model_FILE + f'_{args.notes}'
-    Model_FILE = os.path.join(folder_name, Model_FILE)
+    if args.resume_checkpoint == 'none':
+        Model_FILE = f"diffuseq_{args.dataset}_h{args.hidden_dim}_lr{args.lr}" \
+                    f"_t{args.diff_steps}_{args.noise_schedule}_{args.schedule_sampler}" \
+                    f"_seed{args.seed}"
+        if args.notes:
+            args.notes += time.strftime("%Y%m%d-%H:%M:%S")
+            Model_FILE = Model_FILE + f'_{args.notes}'
+        Model_FILE = os.path.join(folder_name, Model_FILE)
+    else:
+        resume_path = os.path.dirname(args.resume_checkpoint)
+        Model_FILE = resume_path
 
     if int(os.environ['LOCAL_RANK']) == 0:
         if not os.path.isdir(Model_FILE):
