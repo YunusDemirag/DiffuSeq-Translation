@@ -50,6 +50,7 @@ class TrainLoop:
         gradient_clipping=-1.,
         eval_data=None,
         eval_interval=-1,
+        resume_step=0,
     ):
         self.model = model
         self.diffusion = diffusion
@@ -75,7 +76,7 @@ class TrainLoop:
         self.gradient_clipping = gradient_clipping
 
         self.step = 0
-        self.resume_step = 0
+        self.resume_step = resume_step
         self.global_batch = self.batch_size * dist.get_world_size()
 
         self.model_params = list(self.model.parameters())

@@ -25,6 +25,8 @@ if __name__ == '__main__':
     parser.add_argument('--bsz', type=int, default=64, help='batch size')
     parser.add_argument('--microbatch', type=int, default=64, help='microbatch size')
     parser.add_argument('--seed', type=int, default=101, help='random seed')
+    parser.add_argument('--ema_rate', type=float, default=0.999, help='ema rate')
+    parser.add_argument('--resume_step', type=int, default=0, help='resume step')
 
     parser.add_argument('--config_name', type=str, default='bert-base-uncased', help='config of pre-trained models')
     parser.add_argument('--tokenizer', type=str, required=False, help='Tokenizer type')
@@ -70,9 +72,9 @@ if __name__ == '__main__':
                   f"--batch_size {args.bsz} --microbatch {args.microbatch} " \
                   f"--diffusion_steps {args.diff_steps} " \
                   f"--noise_schedule {args.noise_schedule} " \
-                  f"--schedule_sampler {args.schedule_sampler} --resume_checkpoint {args.resume_checkpoint} " \
+                  f"--schedule_sampler {args.schedule_sampler} --resume_checkpoint {args.resume_checkpoint} --resume_step {args.resume_step}" \
                   f"--seq_len {args.seq_len} --hidden_t_dim {args.hidden_t_dim} --seed {args.seed} " \
-                  f"--hidden_dim {args.hidden_dim} " \
+                  f"--hidden_dim {args.hidden_dim} --ema_rate {args.ema_rate}" \
                   f"--learning_steps {args.learning_steps} --save_interval {args.save_interval} " \
                   f"--config_name {args.config_name} --notes {args.notes}"
 
