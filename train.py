@@ -31,6 +31,7 @@ def create_argparser():
     add_dict_to_argparser(parser, defaults) # update latest args according to argparse
     parser.add_argument('--iterative_building', action='store_true', help='whether to use iterative building')
     parser.add_argument('--wandb_resume', default='none', help='whether to use wandb')
+    parser.add_argument('--resume_step', default=0, type=int, help='resume step')
     return parser
 
 def main():
@@ -94,6 +95,11 @@ def main():
 
     logger.log("### Training...")
 
+    optional_args = {}
+
+    if args.resume_checkpoint is not None:
+        optional_args['resume_step'] = args.resume_step
+
     TrainLoop(
         model=model,
         diffusion=diffusion,
@@ -113,7 +119,8 @@ def main():
         checkpoint_path=args.checkpoint_path,
         gradient_clipping=args.gradient_clipping,
         eval_data=data_valid,
-        eval_interval=args.eval_interval
+        eval_interval=args.eval_interval,
+        **optional_args
     ).run_loop()
 
 if __name__ == "__main__":
