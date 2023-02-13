@@ -74,7 +74,7 @@ if __name__ == '__main__':
                   f"--noise_schedule {args.noise_schedule} " \
                   f"--schedule_sampler {args.schedule_sampler} --resume_checkpoint {args.resume_checkpoint} {f'--resume_step {args.resume_step} ' if args.resume_step > 0 else ''} " \
                   f"--seq_len {args.seq_len} --hidden_t_dim {args.hidden_t_dim} --seed {args.seed} " \
-                  f"--hidden_dim {args.hidden_dim} --ema_rate {args.ema_rate}" \
+                  f"--hidden_dim {args.hidden_dim} --ema_rate {args.ema_rate} " \
                   f"--learning_steps {args.learning_steps} --save_interval {args.save_interval} " \
                   f"--config_name {args.config_name} --notes {args.notes}"
 
