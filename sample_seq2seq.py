@@ -220,6 +220,7 @@ def main():
 
 
             if not args.iterative_building:
+                samples = samples_history
                 break
             elif finished_iterative_building:
                 samples = [model.get_embeds(input_ids_x)]
