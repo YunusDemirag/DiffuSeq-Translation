@@ -138,24 +138,33 @@ def main():
         sep_token_id = tokenizer.sep_token_id
         end_token_id = tokenizer.tokenizer.token_to_id('[END]') if isinstance(tokenizer.tokenizer, Tokenizer) else tokenizer.sep_token_id
 
+        batch_size = cond['input_ids'].shape[0]
+        seq_len = cond['input_ids'].shape[1]
+
+        sequence_wise_indices = th.arange(0, seq_len, device=dist_util.dev()).expand(batch_size, seq_len)
+
         finished_iterative_building = False
         input_ids_x = cond.pop('input_ids').to(dist_util.dev())
         reference_ids = input_ids_x.clone().detach()
         input_ids_mask = cond.pop('input_mask').to(dtype=th.bool ,device=dist_util.dev()) # [batch, seq_len]
         input_ids_mask_ori = input_ids_mask.clone().detach()
-        generated_end_tokens_or_reached_max_len = th.zeros(input_ids_x.shape[0], dtype=th.bool, device=dist_util.dev()) # [batch]
-        generated_end_tokens_or_reached_max_len = generated_end_tokens_or_reached_max_len.unsqueeze(1)  # [batch, 1]
+
+        y_i_indices = th.where(input_ids_x == sep_token_id, sequence_wise_indices, 0) # [batch, seq_len]
+        y_i_indices = y_i_indices.sum(dim=1, keepdim=True) # [batch, 1]
+        y_i_indices += 1 # [batch, 1]
+
+        generated_end_tokens_or_reached_max_len = th.zeros((input_ids_mask.shape[0], 1), device=dist_util.dev(), dtype=th.bool) # [batch, 1]
         generated_end_tokens_or_reached_max_len_mask = generated_end_tokens_or_reached_max_len.expand(input_ids_mask.shape) # [batch, seq_len]
-        padding_column = th.full_like(input_ids_x[:, :1], padding_token_id, device=dist_util.dev())
+        padding_column = th.full_like(input_ids_x[:, :1], padding_token_id, device=dist_util.dev()) # [batch, 1]
         while True:
             input_ids_x_clone = input_ids_x.clone().detach()
             input_ids_mask_clone = input_ids_mask.clone().detach()
             ### input_ids_x: [batch_size, seq_len]
-            ### is structured as [x_1, ..., x_n, [END], y_1, ..., y_ji, [SEP], [PAD], ..., [PAD]] in iteration i
+            ### is structured as [x_1, ..., x_n, [SEP], y_1, ..., y_i-1, [PAD], ..., [PAD]] in iteration i
             x_start = model.get_embeds(input_ids_x_clone)
 
             noise = th.randn_like(x_start)
-            input_ids_mask_clone = th.broadcast_to(input_ids_mask_clone.unsqueeze(dim=-1), x_start.shape)
+            input_ids_mask_clone = th.broadcast_to(input_ids_mask_clone.unsqueeze(dim=-1), x_start.shape) # [batch, seq_len, hidden_dim]
             x_noised = th.where(input_ids_mask_clone==0, x_start, noise)
 
             model_kwargs = {}
@@ -179,42 +188,35 @@ def main():
 
             if args.iterative_building:
                 ### samples: [batch_size, seq_len, output_dim]
-                ### structured as [x_1, ..., x_n, [END], y_1, ..., y_ji, [SEP], y_(ji+1), ..., y_j(i+1), [PAD], ..., [PAD]] in each row in iteration i (counting from 0)
-                ### do knn for y_(ji+1), ..., y_j(i+1) and update input_ids_x
+                ### structured as [x_1, ..., x_n, [SEP], y_1, ..., y_i-1, g_1, ..., g_j, [PAD], ..., [PAD]] in iteration i
+                ### do knn and write g_1 to y_i
                 samples = samples_history[-1].clone().detach()
 
                 distances_to_embeddings : th.Tensor = model.get_logits(samples)  # bsz, seqlen, vocab
 
                 nearest_embeddings = distances_to_embeddings.argmax(dim=-1) # bsz, seqlen
+
+                y_i_update_mask = (y_i_indices.expand(sequence_wise_indices.shape) == sequence_wise_indices) 
+                y_i_update_mask &= ~generated_end_tokens_or_reached_max_len_mask 
                 
-                generated_tokens_mask = input_ids_mask & ( nearest_embeddings != padding_token_id )
+                input_ids_x = th.where(y_i_update_mask, nearest_embeddings, input_ids_x) # bsz, seqlen
 
-                generated_end_tokens = input_ids_mask & ( nearest_embeddings == end_token_id )
-                sequence_generated_end_token = ~th.all(~generated_end_tokens, dim=1, keepdim=True) # bsz, 1
-                reached_max_len = nearest_embeddings[:, -1:] != padding_token_id # bsz, 1
-                stopped_generating = th.all(~generated_tokens_mask, dim=1, keepdim=True) # bsz, 1
+                # The mask is True where the network should generate tokens in the next iteration
+                input_ids_mask = input_ids_mask & ~y_i_update_mask # bsz, seqlen
 
-                generated_end_tokens_or_reached_max_len = generated_end_tokens_or_reached_max_len | sequence_generated_end_token | reached_max_len | stopped_generating	
+                y_i_indices += 1 # [batch, 1]
+
+                generated_tokens_end_token = y_i_update_mask & ( nearest_embeddings == end_token_id )
+                sequence_generated_end_token = th.any(generated_tokens_end_token, dim=1, keepdim=True) # bsz, 1
+                reached_max_len = y_i_indices == seq_len # bsz, 1
+                generated_token_is_padding = y_i_update_mask & ( nearest_embeddings == padding_token_id )
+                sequence_generated_padding_token = th.any(generated_token_is_padding, dim=1, keepdim=True) # bsz, 1
+
+                generated_end_tokens_or_reached_max_len |= sequence_generated_end_token
+                generated_end_tokens_or_reached_max_len |= reached_max_len
+                generated_end_tokens_or_reached_max_len |= sequence_generated_padding_token
+
                 generated_end_tokens_or_reached_max_len_mask = generated_end_tokens_or_reached_max_len.expand(input_ids_mask.shape)
-
-                # Shift the nearest embeddings to the left by one position and pad the last position with padding_token_id
-                nearest_embeddings = th.cat(
-                    [nearest_embeddings[:, 1:], padding_column], dim=1
-                )
-
-                shifted_generated_tokens_mask = th.cat(
-                    [generated_tokens_mask[:, 1:], th.zeros_like(generated_tokens_mask[:, :1], dtype=th.bool, device=dist_util.dev())], dim=1
-                )
-
-                set_tokens_mask = th.logical_or(input_ids_mask, input_ids_x == sep_token_id)
-
-                set_sep_token_mask =  generated_tokens_mask & ~shifted_generated_tokens_mask
-
-                nearest_embeddings = th.where(set_sep_token_mask, sep_token_id, nearest_embeddings)
-
-                input_ids_x = th.where(set_tokens_mask, nearest_embeddings, input_ids_x)
-
-                input_ids_mask = input_ids_mask & ~generated_tokens_mask & ~generated_end_tokens_or_reached_max_len_mask
 
                 finished_iterative_building = th.all(generated_end_tokens_or_reached_max_len)
 
