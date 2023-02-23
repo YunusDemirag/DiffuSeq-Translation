@@ -224,7 +224,6 @@ def get_corpus_iterative(data_args, seq_len, split='train', loaded_vocab=None, s
             row_dict = json.loads(row)
             trg = row_dict['trg'].strip()
             src = row_dict['src'].strip()
-            src = src + ' [END] '
             return [(src, trg)]
     else:
         def prepare_data(row):
