@@ -53,6 +53,7 @@ def main():
     with open(config_path, 'rb', ) as f:
         training_args = json.load(f)
     training_args['batch_size'] = args.batch_size
+    training_args['iterative_building'] = args.iterative_building
     args.__dict__.update(training_args)
 
     logger.log("### Creating model and diffusion...")
