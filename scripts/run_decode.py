@@ -30,16 +30,16 @@ if __name__ == '__main__':
         print(lst)
         checkpoints = sorted(glob.glob(f"{lst}/{args.pattern}*.pt"))[::-1]
 
-        out_dir = 'generation_outputs'
+        out_dir = f'generation_outputs{"_iterative" if args.iterative_building else ""}'
         if not os.path.isdir(out_dir):
             os.mkdir(out_dir)
 
         for checkpoint_one in checkpoints:
 
-            COMMAND = f'python -m torch.distributed.launch --nproc_per_node=1 --master_port={12233 + int(args.seed)} --use_env sample_seq2seq.py ' \
+            COMMAND = f'python -m torch.distributed.launch --nproc_per_node=1 --master_port={12233 + int(args.seed)} --use_env sample{"_iteratively" if args.iterative_building else ""}_seq2seq.py ' \
             f'--model_path {checkpoint_one} --step {args.step} ' \
             f'--batch_size {args.bsz} --seed2 {args.seed} --split {args.split} ' \
-            f'--out_dir {out_dir} --top_p {args.top_p} {"" if not args.iterative_building else "--iterative_building"}'
+            f'--out_dir {out_dir} --top_p {args.top_p} '
             print(COMMAND)
             
             os.system(COMMAND)
