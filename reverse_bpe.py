@@ -6,7 +6,7 @@ import json
 
 parser = argparse.ArgumentParser(description='Undo BPE subword tokenization')
 parser.add_argument('--file', '-f', type=str, help='File formatted as a jsonl file with texts having been tokenized with BPE')
-parser.add_argument('--bpe', '-b', type=str, help='BPE subword character')
+parser.add_argument('--bpe', '-b', default='|', required=False, type=str, help='BPE subword character')
 
 args = parser.parse_args()
 
