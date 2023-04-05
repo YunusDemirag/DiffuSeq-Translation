@@ -21,7 +21,7 @@ with open(args.file, 'r') as f:
             # Split the tokens by whitespace
             for token in line[key].split(' '):
                 if token.startswith(args.bpe):
-                    reconstruced += token[2:]
+                    reconstruced += token[1:]
                 elif token == '.':
                     reconstruced += token
                 else:
