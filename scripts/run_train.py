@@ -28,6 +28,7 @@ if __name__ == '__main__':
     parser.add_argument('--ema_rate', type=float, default=0.999, help='ema rate')
     parser.add_argument('--resume_step', type=int, default=0, required=False, help='resume step')
 
+    parser.add_argument('--config_type', type=str, default='bert', help='config of pre-trained models')
     parser.add_argument('--config_name', type=str, default='bert-base-uncased', help='config of pre-trained models')
     parser.add_argument('--tokenizer', type=str, required=False, help='Tokenizer type')
     parser.add_argument('--vocab', type=str, default='bert', help='use bert vocab or load external vocab dict if given as path')
@@ -80,7 +81,7 @@ if __name__ == '__main__':
                   f"--seq_len {args.seq_len} --hidden_t_dim {args.hidden_t_dim} --seed {args.seed} " \
                   f"--hidden_dim {args.hidden_dim} --ema_rate {args.ema_rate} " \
                   f"--learning_steps {args.learning_steps} --save_interval {args.save_interval} " \
-                  f"--config_name {args.config_name} --notes {args.notes}"
+                  f"--config_type {args.config_type} --config_name {args.config_name} --notes {args.notes}"
 
     COMMANDLINE += " " + args.app
 

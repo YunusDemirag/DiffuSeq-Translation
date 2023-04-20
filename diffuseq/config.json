@@ -16,6 +16,7 @@
   "vocab": "bert",
   "use_plm_init": "no",
   "vocab_size": 0,
+  "config_type": "bert",
   "config_name": "huggingface-config",
   "notes": "folder-notes",
   "data_dir": "data-dir",

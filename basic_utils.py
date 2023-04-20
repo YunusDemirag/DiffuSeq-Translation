@@ -5,9 +5,10 @@ import time
 
 from diffuseq import gaussian_diffusion as gd
 from diffuseq.gaussian_diffusion import SpacedDiffusion, space_timesteps
-from diffuseq.transformer_model import TransformerNetModel
+from diffuseq.transformer_model import BertModel, FairseqModel
 from transformers import AutoTokenizer, PreTrainedTokenizerFast, PreTrainedTokenizer
 from tokenizers import Tokenizer, Encoding
+from fairseq.data import Dictionary as FairseqDictionary
 
 class myTokenizer():
     """
@@ -81,6 +82,16 @@ class myTokenizer():
         else:
             assert False, "invalid type of vocab_dict"
         return tokens
+    
+    def get_vocab(self) -> "dict[str, int]":
+        if isinstance(self.tokenizer, dict):
+            return self.tokenizer
+        elif isinstance(self.tokenizer, PreTrainedTokenizerFast):
+            return self.tokenizer.get_vocab()
+        elif isinstance(self.tokenizer, Tokenizer):
+            return self.tokenizer.get_vocab()
+        else:
+            assert False, "invalid type of vocab_dict"
 
 
 def load_model_emb(args, tokenizer):
@@ -137,17 +148,34 @@ def create_model_and_diffusion(
     rescale_learned_sigmas,
     use_kl,
     notes,
+    config_type,
     **kwargs,
 ):
-    model = TransformerNetModel(
-        input_dims=hidden_dim,
-        output_dims=(hidden_dim if not learn_sigma else hidden_dim*2),
-        hidden_t_dim=hidden_t_dim,
-        dropout=dropout,
-        config_name=config_name,
-        vocab_size=vocab_size,
-        init_pretrained=use_plm_init
-    )
+    if config_type == 'bert':
+        model = BertModel(
+            input_dims=hidden_dim,
+            output_dims=(hidden_dim if not learn_sigma else hidden_dim*2),
+            hidden_t_dim=hidden_t_dim,
+            dropout=dropout,
+            config_name=config_name,
+            vocab_size=vocab_size,
+            init_pretrained=use_plm_init
+        )
+    elif config_type == 'fairseq':
+        assert "fairseqDictionary" in kwargs, "dictionary must be provided for fairseq model"
+        assert type(kwargs["fairseqDictionary"]) == FairseqDictionary, "dictionary must be fairseq Dictionary"
+        model = FairseqModel(
+            input_dims=hidden_dim,
+            output_dims=(hidden_dim if not learn_sigma else hidden_dim*2),
+            hidden_t_dim=hidden_t_dim,
+            dictionary=kwargs["fairseqDictionary"],
+            dropout=dropout,
+            config_name=config_name,
+            vocab_size=vocab_size,
+            init_pretrained=use_plm_init
+        )
+    else:
+        raise ValueError(f'Invalid config_type: {config_type}')
 
     betas = gd.get_named_beta_schedule(noise_schedule, diffusion_steps)
 

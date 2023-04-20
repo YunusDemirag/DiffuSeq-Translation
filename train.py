@@ -18,6 +18,7 @@ from basic_utils import (
 )
 from train_util import TrainLoop
 from transformers import set_seed
+from fairseq.data import Dictionary as FairseqDictionary
 import wandb
 
 ### custom your wandb setting here ###
@@ -68,9 +69,25 @@ def main():
     print('#'*30, 'size of vocab', args.vocab_size)
 
     logger.log("### Creating model and diffusion...")
+
+    model_specific_args = {}
+    if args.config_type == "fairseq":
+        """Fairseq Models require a special dictionary to be passed in"""
+        fairseqDictionary = FairseqDictionary(
+            bos='[START]',
+            eos='[END]',
+            pad='[PAD]',
+            unk='[UNK]'
+        )
+        vocab = tokenizer.get_vocab()
+        for word in vocab:
+            fairseqDictionary.add_symbol(word, n=vocab[word])
+        model_specific_args['fairseqDictionary'] = fairseqDictionary
+
     # print('#'*30, 'CUDA_VISIBLE_DEVICES', os.environ['CUDA_VISIBLE_DEVICES'])
     model, diffusion = create_model_and_diffusion(
-        **args_to_dict(args, load_defaults_config().keys())
+        **args_to_dict(args, load_defaults_config().keys()),
+        **model_specific_args
     )
     # print('#'*30, 'cuda', dist_util.dev())
     model.to(dist_util.dev()) #  DEBUG **
