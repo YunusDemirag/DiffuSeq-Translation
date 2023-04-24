@@ -5,7 +5,7 @@ import time
 
 from diffuseq import gaussian_diffusion as gd
 from diffuseq.gaussian_diffusion import SpacedDiffusion, space_timesteps
-from diffuseq.transformer_model import BertModel, FairseqModel
+from diffuseq.transformer_model import BertModel, FairseqEncoderModel, FairseqEncoderDecoderModel
 from transformers import AutoTokenizer, PreTrainedTokenizerFast, PreTrainedTokenizer
 from tokenizers import Tokenizer, Encoding
 from fairseq.data import Dictionary as FairseqDictionary
@@ -161,10 +161,23 @@ def create_model_and_diffusion(
             vocab_size=vocab_size,
             init_pretrained=use_plm_init
         )
-    elif config_type == 'fairseq':
+    elif config_type == 'fairseq_encoder':
         assert "fairseqDictionary" in kwargs, "dictionary must be provided for fairseq model"
         assert type(kwargs["fairseqDictionary"]) == FairseqDictionary, "dictionary must be fairseq Dictionary"
-        model = FairseqModel(
+        model = FairseqEncoderModel(
+            input_dims=hidden_dim,
+            output_dims=(hidden_dim if not learn_sigma else hidden_dim*2),
+            hidden_t_dim=hidden_t_dim,
+            dictionary=kwargs["fairseqDictionary"],
+            dropout=dropout,
+            config_name=config_name,
+            vocab_size=vocab_size,
+            init_pretrained=use_plm_init
+        )
+    elif config_type == 'fairseq_encoder_decoder':
+        assert "fairseqDictionary" in kwargs, "dictionary must be provided for fairseq model"
+        assert type(kwargs["fairseqDictionary"]) == FairseqDictionary, "dictionary must be fairseq Dictionary"
+        model = FairseqEncoderDecoderModel(
             input_dims=hidden_dim,
             output_dims=(hidden_dim if not learn_sigma else hidden_dim*2),
             hidden_t_dim=hidden_t_dim,

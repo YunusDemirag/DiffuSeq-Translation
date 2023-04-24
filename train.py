@@ -71,7 +71,7 @@ def main():
     logger.log("### Creating model and diffusion...")
 
     model_specific_args = {}
-    if args.config_type == "fairseq":
+    if args.config_type in ['fairseq_encoder', 'fairseq_encoder_decoder']:
         """Fairseq Models require a special dictionary to be passed in"""
         fairseqDictionary = FairseqDictionary(
             bos='[START]',
