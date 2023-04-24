@@ -16,6 +16,7 @@ from diffuseq.rounding import denoised_fn_round, get_weights
 from diffuseq.text_datasets import load_data_text
 
 # from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+from fairseq.data import Dictionary as FairseqDictionary
 
 import time
 from diffuseq.utils import dist_util, logger
@@ -57,8 +58,27 @@ def main():
     args.__dict__.update(training_args)
 
     logger.log("### Creating model and diffusion...")
+    
+    tokenizer = load_tokenizer(args)
+    model_emb, tokenizer = load_model_emb(args, tokenizer)
+    
+    model_specific_args = {}
+    if args.config_type == "fairseq":
+        """Fairseq Models require a special dictionary to be passed in"""
+        fairseqDictionary = FairseqDictionary(
+            bos='[START]',
+            eos='[END]',
+            pad='[PAD]',
+            unk='[UNK]'
+        )
+        vocab = tokenizer.get_vocab()
+        for word in vocab:
+            fairseqDictionary.add_symbol(word, n=vocab[word])
+        model_specific_args['fairseqDictionary'] = fairseqDictionary
+
     model, diffusion = create_model_and_diffusion(
-        **args_to_dict(args, load_defaults_config().keys())
+        **args_to_dict(args, load_defaults_config().keys()),
+        **model_specific_args
     )
 
     model.load_state_dict(
@@ -70,9 +90,6 @@ def main():
 
     model.to(dist_util.dev())
     model.eval()
-
-    tokenizer = load_tokenizer(args)
-    model_emb, tokenizer = load_model_emb(args, tokenizer)
 
     model_emb.weight = th.nn.Parameter(model.word_embedding.weight.clone().cpu())
     model_emb_copy = get_weights(model_emb, args)
