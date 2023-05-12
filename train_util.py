@@ -20,6 +20,7 @@ from diffuseq.utils.fp16_util import (
 )
 from diffuseq.utils.nn import update_ema
 from diffuseq.step_sample import LossAwareSampler, UniformSampler
+from diffuseq.transformer_model import FairseqEncoderModel, FairseqEncoderDecoderModel
 
 # For ImageNet experiments, this was a good default value.
 # We found that the lg_loss_scale quickly climbed to
@@ -115,7 +116,7 @@ class TrainLoop:
                 output_device=dist_util.dev(),
                 broadcast_buffers=False,
                 bucket_cap_mb=128,
-                find_unused_parameters=True,
+                find_unused_parameters=True if type(model) in [FairseqEncoderModel, FairseqEncoderDecoderModel] else False,
             )
         else:
             if dist.get_world_size() > 1:
