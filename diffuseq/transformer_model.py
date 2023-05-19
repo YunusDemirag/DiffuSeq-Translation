@@ -184,7 +184,7 @@ class FairseqEncoderModel(nn.Module):
         config_name='transformer_iwslt_de_en',
         vocab_size=None,
         init_pretrained='no',
-        logits_mode=2,
+        logits_mode=3,
     ):
         super().__init__()
 
@@ -237,6 +237,12 @@ class FairseqEncoderModel(nn.Module):
             nn.Softmax(dim=-1)
         )
 
+        if self.logits_mode == 3:
+            self.word_prediction_head = nn.Sequential(
+                nn.Linear(self.input_dims, vocab_size),
+                nn.Softmax(dim=-1)
+            )
+
     def get_embeds(self, input_ids):
         return self.word_embedding(input_ids)
 
@@ -254,8 +260,8 @@ class FairseqEncoderModel(nn.Module):
                                                                hidden_repr.size(1)) # vocab, bsz*seqlen
             scores = -scores.permute(1, 2, 0)
             return scores
-        else:
-            raise NotImplementedError
+        elif self.logits_mode == 3:
+            return self.word_prediction_head(hidden_repr)
 
 
     def forward(self, x, timesteps):
