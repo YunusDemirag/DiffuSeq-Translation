@@ -237,11 +237,10 @@ class FairseqEncoderModel(nn.Module):
             nn.Softmax(dim=-1)
         )
 
-        if self.logits_mode == 3:
-            self.word_prediction_head = nn.Sequential(
-                nn.Linear(self.input_dims, vocab_size),
-                nn.Softmax(dim=-1)
-            )
+        self.word_prediction_head = nn.Sequential(
+            nn.Linear(self.input_dims, vocab_size),
+            nn.Softmax(dim=-1)
+        )
 
     def get_embeds(self, input_ids):
         return self.word_embedding(input_ids)
@@ -262,6 +261,8 @@ class FairseqEncoderModel(nn.Module):
             return scores
         elif self.logits_mode == 3:
             return self.word_prediction_head(hidden_repr)
+        else:
+            raise NotImplementedError
 
 
     def forward(self, x, timesteps):

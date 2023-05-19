@@ -116,7 +116,7 @@ class TrainLoop:
                 output_device=dist_util.dev(),
                 broadcast_buffers=False,
                 bucket_cap_mb=128,
-                find_unused_parameters=True if type(model) in [FairseqEncoderModel, FairseqEncoderDecoderModel] else False,
+                find_unused_parameters=False if type(model) in [FairseqEncoderModel, FairseqEncoderDecoderModel] else False,
             )
         else:
             if dist.get_world_size() > 1:
