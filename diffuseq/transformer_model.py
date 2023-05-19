@@ -288,7 +288,8 @@ class FairseqEncoderModel(nn.Module):
 
         # Fairseq transformer needs the tokens to calculate a padding mask
         with torch.no_grad():
-            guessed_tokens = self.get_logits(x).argmax(-1) # [batch_size, seq_len]
+            #guessed_tokens = self.get_logits(x).argmax(-1) # [batch_size, seq_len]
+            guessed_tokens = torch.zeros_like(x)
             # Assure not all tokens are padding
             # if (guessed_tokens == self.word_embedding.padding_idx).all():
             #     guessed_tokens.fill_(self.word_embedding.padding_idx + 1)
