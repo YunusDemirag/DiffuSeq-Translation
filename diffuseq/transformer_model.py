@@ -184,7 +184,7 @@ class FairseqEncoderModel(nn.Module):
         config_name='transformer_iwslt_de_en',
         vocab_size=None,
         init_pretrained='no',
-        logits_mode=3,
+        logits_mode=1,
     ):
         super().__init__()
 
@@ -254,10 +254,6 @@ class FairseqEncoderModel(nn.Module):
                                                                hidden_repr.size(1)) # vocab, bsz*seqlen
             scores = -scores.permute(1, 2, 0)
             return scores
-        elif self.logits_mode == 3:
-            scalar_logits = F.linear(hidden_repr, self.word_embedding.weight)
-            probs = F.softmax(scalar_logits, dim=-1)
-            return probs
         else:
             raise NotImplementedError
 
