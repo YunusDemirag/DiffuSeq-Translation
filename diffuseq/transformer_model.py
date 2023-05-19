@@ -252,7 +252,7 @@ class FairseqEncoderModel(nn.Module):
                                                                      text_emb_t)  # (vocab, d) x (d, bsz*seqlen)
             scores = th.sqrt(th.clamp(dist, 0.0, np.inf)).view(emb_norm.size(0), hidden_repr.size(0),
                                                                hidden_repr.size(1)) # vocab, bsz*seqlen
-            scores = -scores.permute(1, 2, 0).contiguous()
+            scores = -scores.permute(1, 2, 0)
             return scores
         else:
             raise NotImplementedError
