@@ -237,11 +237,6 @@ class FairseqEncoderModel(nn.Module):
             nn.Softmax(dim=-1)
         )
 
-        self.word_prediction_head = nn.Sequential(
-            nn.Linear(self.input_dims, vocab_size),
-            nn.Softmax(dim=-1)
-        )
-
     def get_embeds(self, input_ids):
         return self.word_embedding(input_ids)
 
@@ -260,7 +255,9 @@ class FairseqEncoderModel(nn.Module):
             scores = -scores.permute(1, 2, 0)
             return scores
         elif self.logits_mode == 3:
-            return self.word_prediction_head(hidden_repr)
+            scalar_logits = F.linear(hidden_repr, self.word_embedding.weight)
+            probs = F.softmax(scalar_logits, dim=-1)
+            return probs
         else:
             raise NotImplementedError
 
@@ -288,8 +285,7 @@ class FairseqEncoderModel(nn.Module):
 
         # Fairseq transformer needs the tokens to calculate a padding mask
         with torch.no_grad():
-            #guessed_tokens = self.get_logits(x).argmax(-1) # [batch_size, seq_len]
-            guessed_tokens = torch.zeros_like(x)
+            guessed_tokens = self.get_logits(x).argmax(-1) # [batch_size, seq_len]
             # Assure not all tokens are padding
             # if (guessed_tokens == self.word_embedding.padding_idx).all():
             #     guessed_tokens.fill_(self.word_embedding.padding_idx + 1)
